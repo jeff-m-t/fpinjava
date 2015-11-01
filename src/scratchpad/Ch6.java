@@ -4,6 +4,7 @@ import java.util.function.Function;
 
 import fpinjava.data.State;
 import fpinjava.data.State.StateAction;
+import fpinjava.data.Unit;
 
 
 
@@ -16,6 +17,12 @@ public class Ch6 {
 		State<Integer,Integer> state = new State<Integer,Integer>(f);
 		
 		System.out.println(state.run(5));
+	
+		State<VendingMachineState,Unit> stepper = new State<VendingMachineState,Unit>((s) -> {
+			return new StateAction<VendingMachineState,Unit>(s,Unit.unit);
+		});
+	
+		
 	}
 
 	public final static class VendingMachineState {
