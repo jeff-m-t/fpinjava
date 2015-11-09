@@ -39,6 +39,19 @@ public class State<S,A> {
 		return _run.apply(state); 
 	}
 	
+	public static <S> State<S,S> get() {
+		return new State<S,S>(s -> new StateAction<S,S>(s,s));
+	}
+	
+	public static <S> State<S,Unit> set(S state) {
+		return new State<S,Unit>(s -> new StateAction<S,Unit>(state,Unit.unit()));
+	}
+	
+	public static <S >State<S,Unit> modify(Function<S,S> f) {
+		State<S,S> init = State.get();
+		return init.flatMap(s -> State.set(f.apply(s)));
+	}
+	
 	public static <S,A> State<S,A> unit(A a) {
 		return new State<S,A>(s -> new StateAction<S,A>(s,a));
 	}

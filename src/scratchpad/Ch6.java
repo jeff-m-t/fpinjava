@@ -2,6 +2,7 @@ package scratchpad;
 
 import java.util.function.Function;
 
+import fpinjava.data.List;
 import fpinjava.data.State;
 import fpinjava.data.State.StateAction;
 import fpinjava.data.Unit;
@@ -16,40 +17,61 @@ public class Ch6 {
 
 		State<Integer,Integer> state = new State<Integer,Integer>(f);
 		
-		System.out.println(state.run(5));
-	
-		State<VendingMachineState,Unit> stepper = new State<VendingMachineState,Unit>((s) -> {
-			return new StateAction<VendingMachineState,Unit>(s,Unit.unit);
-		});
-	
+		System.out.println(state.run(5));		
+
+		State<Machine,Machine> test = simulateMachine(List.of(Input.coin(),Input.turn(),Input.coin(),Input.turn()));
+		
+		System.out.println( test.run(new Machine(true,10,0)).output() );
 		
 	}
+	
+	public static State<Machine,Machine> simulateMachine(List<Input> inputs) {
+		List<State<Machine,Unit>> transitions = inputs.map(inp -> State.modify((Machine s) -> stepper(inp,s)));
+		return State.sequence(transitions).flatMap(s -> State.get());
+	}
+	
+	public static Machine stepper(Input inp, Machine m) {
+		if(m.numCandies <= 0) return m;
+		else if(inp instanceof Input.Coin && m.locked) return m.unlocked().withOneMoreCoin();
+		else if(inp instanceof Input.Turn && ! m.locked) return m.locked().withOneLessCandy();
+		else return m;
+	}	
 
-	public final static class VendingMachineState {
+	public final static class Machine {
 		public final boolean locked;
 		public final int numCandies;
 		public final int numCoins;
 		
-		public VendingMachineState(boolean locked, int numCandies, int numCoins) {
+		public Machine(boolean locked, int numCandies, int numCoins) {
 			this.locked = locked;
 			this.numCandies = numCandies;
 			this.numCoins = numCoins;
 		}
 		
-		public VendingMachineState withOneMoreCoin() {
-			return new VendingMachineState(locked,numCandies,numCoins+1);
+		public Machine withOneMoreCoin() {
+			return new Machine(locked,numCandies,numCoins + 1);
 		}
 		
-		public VendingMachineState withOneLessCandy() {
-			return new VendingMachineState(locked,numCandies - 1, numCoins);
+		public Machine withOneLessCandy() {
+			return new Machine(locked,numCandies - 1, numCoins);
 		}
 		
-		public VendingMachineState unlocked() {
-			return new VendingMachineState(false,numCandies,numCoins);
+		public Machine unlocked() {
+			return new Machine(false,numCandies,numCoins);
 		}
 
-		public VendingMachineState locked() {
-			return new VendingMachineState(true,numCandies,numCoins);
+		public Machine locked() {
+			return new Machine(true,numCandies,numCoins);
+		}
+		
+		@Override
+		public String toString() {
+			return new StringBuilder("VendingMachine(")
+						.append("locked=").append(locked).append(",")
+						.append("candies=").append(numCandies).append(",")
+						.append("coins=").append(numCoins)
+						.append(")")
+						.toString();
 		}
 	}
 	
