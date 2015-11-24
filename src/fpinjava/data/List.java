@@ -89,6 +89,11 @@ public abstract class List<A> {
 		else return new Cons<C>(f.apply(head(),other.head()), tail().zipWith(other.tail(),f));
 	}
 	
+	public static <A> List<A> flatten(List<List<A>> lls) {
+		List<A> zero = nil();
+		return lls.foldLeft(zero,(acc,ls) -> acc.append(ls));
+	}
+	
 	public boolean forAll(Predicate<A> p) {
 		return foldLeft(true, (b,a) -> p.test(a) && b);
 	}
@@ -103,6 +108,28 @@ public abstract class List<A> {
 		if(isEmpty()) return Optional.empty();
 		else if(p.test(head())) return Optional.of(head());
 		else return tail().find(p);
+	}
+	
+	public static List<Integer> range(int from, int to) {
+		return rangeHelper2(from,to,nil());
+	}
+	
+	public static List<Integer> rangeHelper(int from, int to, List<Integer> acc) {
+		if(from > to) return acc;
+		else {
+			List<Integer> newAcc = new Cons<>(to,acc);
+			return rangeHelper(from,to-1,newAcc);
+		}
+	}
+	
+	public static List<Integer> rangeHelper2(int from, int to, List<Integer> acc) {
+		int counter = to;
+		while(true) {
+			if(from > counter) return acc;
+			List<Integer> newAcc = new Cons<>(counter,acc);
+			counter = counter - 1;
+			acc = newAcc;
+		}
 	}
 	
 	@SuppressWarnings("unchecked")
