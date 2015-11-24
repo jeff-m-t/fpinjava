@@ -13,7 +13,6 @@ import java.util.concurrent.Callable;
 import fpinjava.data.List;
 import fpinjava.data.Option;
 import fpinjava.data.Either;
-import fpinjava.data.Pair;
 import fpinjava.data.Unit;
 import fpinjava.data.List.Cons;
 
