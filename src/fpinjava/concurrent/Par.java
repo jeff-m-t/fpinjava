@@ -19,10 +19,10 @@ import fpinjava.data.List.Cons;
 
 public class Par<A> {
 
-	private final Function<ExecutorService,Future<A>> _body;
+	private final Function<ExecutorService,Future<A>> body;
 	
 	private Par(Function<ExecutorService,Future<A>> body) {
-		_body = body;
+		this.body = body;
 	}
 
 	// Constructors
@@ -42,7 +42,7 @@ public class Par<A> {
 		return new Par<A>((es) -> new Future<A>() {
 			@Override public void apply(Consumer<A> cb) {
 				Supplier<Unit> supplier = () -> {
-					a.get()._body.apply(es).apply(foo -> cb.accept(foo));
+					a.get().body.apply(es).apply(foo -> cb.accept(foo));
 					return Unit.unit;
 				};
 				eval(es,supplier);
@@ -60,7 +60,47 @@ public class Par<A> {
 		return fork(() -> unit(a.get()));
 	}
 	
+	// API
+	public <B> Par<B> map(Function<A,B> f) {
+		return map(this,f);
+	}
 	
+	public <B> Par<B> flatMap(Function<A,Par<B>> f) {
+		return flatMap(this,f);
+	}
+
+	public <B,C> Par<C> map2(Par<B> other, BiFunction<A,B,C> f) {
+		return map2(this,other,f);
+	}
+	
+	public static <A,B> Function<A,Par<B>> asyncF(Function<A,B> f) {
+		return a -> lazyUnit(() -> f.apply(a)); 
+	}
+
+	// Derived API
+	
+	public static <A,B> Par<List<B>> traverse(List<A> as, Function<A,Par<B>> f) {
+		if(as.isEmpty()) return unit(List.nil());
+		else {
+			A h = ((Cons<A>)as).head();
+			List<A> t = ((Cons<A>)as).tail();
+			return f.apply(h).map2(traverse(t,f),(a,lst) -> lst.cons(a));
+		}	
+	}
+	
+	public static <A> Par<List<A>> sequence(List<Par<A>> ps) {
+		return traverse(ps,a->a);
+	}
+
+	public static <A> Par<A> joinDerived(Par<Par<A>> ppa) {
+		return ppa.flatMap(a -> a);
+	}
+	
+	public static <A,B> Par<B> flatMapDerived(Par<A> pa, Function<A,Par<B>> f) {
+		return join(pa.map(f));
+	}
+	
+	// API Impl
 	public static <A,B,C> Par<C> map2(Par<A> para, Par<B> parb, BiFunction<A,B,C> f) {
 		return new Par<C>((es) -> new Future<C>() {
 			@Override
@@ -89,39 +129,14 @@ public class Par<A> {
 					}
 				});
 				
-				para._body.apply(es).apply( a -> combiner.tell(Either.left(a))  );
-				parb._body.apply(es).apply( b -> combiner.tell(Either.right(b)) );
+				para.body.apply(es).apply( a -> combiner.tell(Either.left(a))  );
+				parb.body.apply(es).apply( b -> combiner.tell(Either.right(b)) );
 			}
 		});
 	}
 
-	public <B,C> Par<C> map2(Par<B> other, BiFunction<A,B,C> f) {
-		return map2(this,other,f);
-	}
-
-	public static <A,B> Function<A,Par<B>> asyncF(Function<A,B> f) {
-		return a -> lazyUnit(() -> f.apply(a)); 
-	}
-	
-	public static <A,B> Par<List<B>> traverse(List<A> as, Function<A,Par<B>> f) {
-		if(as.isEmpty()) return unit(List.nil());
-		else {
-			A h = ((Cons<A>)as).head();
-			List<A> t = ((Cons<A>)as).tail();
-			return f.apply(h).map2(traverse(t,f),(a,lst) -> lst.cons(a));
-		}	
-	}
-	
-	public static <A> Par<List<A>> sequence(List<Par<A>> ps) {
-		return traverse(ps,a->a);
-	}
-	
 	public static <A, B> Par<B> map(Par<A> pa, Function<A,B> f) {
 		return map2(pa, unit(Unit.unit()), (a,u) -> f.apply(a));
-	}
-	
-	public <B> Par<B> map(Function<A,B> f) {
-		return map(this,f);
 	}
 	
 	public static <A,B> Par<List<B>> parMap(List<A> ps, Function<A,B> f) {
@@ -147,29 +162,29 @@ public class Par<A> {
 			@Override public void apply(Consumer<B> cb) {
 				Consumer<A> first = a -> {
 					eval(es, () -> { 
-						f.apply(a)._body.apply(es).apply(cb); 
+						f.apply(a).body.apply(es).apply(cb); 
 						return Unit.unit();
 					});
 				};
-				pa._body.apply(es).apply(first);
+				pa.body.apply(es).apply(first);
 			}
 		});
 	}
-	
+
 	public static <A> Par<A> join(Par<Par<A>> ppa) {
 		return new Par<A>((es) -> new Future<A>() {
 			@Override public void apply(Consumer<A> cb) {
 				Consumer<Par<A>> first = pa -> {
 					eval(es,() -> {
-						pa._body.apply(es).apply(cb); 
+						pa.body.apply(es).apply(cb); 
 						return Unit.unit();
 					});
 				};
-				ppa._body.apply(es).apply(first);
+				ppa.body.apply(es).apply(first);
 			}
 		});
 	}
-
+	
 	// Interfaces
 	interface Future<A> {
 		void apply(Consumer<A> cb);
@@ -179,7 +194,7 @@ public class Par<A> {
 		final AtomicReference<A> ref = new AtomicReference<>();
 		final CountDownLatch latch = new CountDownLatch(1);
 		
-		pa._body.apply(es).apply(a -> { ref.set(a); latch.countDown(); });
+		pa.body.apply(es).apply(a -> { ref.set(a); latch.countDown(); });
 
 		try { latch.await(); } catch(Throwable ex) { throw new RuntimeException("Caught checked exception. Rethrowing", ex); };
 		
