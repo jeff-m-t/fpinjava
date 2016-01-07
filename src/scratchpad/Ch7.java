@@ -20,7 +20,7 @@ public class Ch7 {
 			
 		};
 		
-		ExecutorService es = Executors.newFixedThreadPool(8, daemonThreadFactory);
+		ExecutorService es = Executors.newFixedThreadPool(4, daemonThreadFactory);
 
 		System.out.println("Main Thread: "+Thread.currentThread().getName());
 		
@@ -29,20 +29,14 @@ public class Ch7 {
 		
 		Par<String> p3 = Par.map2(p1,p2,(i,b) -> "It's "+b+" I got a "+i);
 		
-		long start = System.currentTimeMillis();
-		System.out.println(Par.run(es,p3));
-		long end = System.currentTimeMillis();
-		System.out.println("That took "+(end-start)+" milliseconds");
+		System.out.println(timed(() -> Par.run(es,p3)));
 
 		List<Integer> inp = List.range(1,360);
 		Par<List<Double>> p = Par.parMap(inp , i -> {sleepySleep(10); return Math.sqrt(i); });
 		
-		start = System.currentTimeMillis();
-		List<Double> res = Par.run(es, p);
+		List<Double> res = timed(() -> Par.run(es, p));		
 		System.out.println("inp: "+inp.take(10));
 		System.out.println("res: "+res.take(10));
-		end = System.currentTimeMillis();
-		System.out.println("That took "+(end-start)+" milliseconds");
 		
 		Par<Integer> chooser = Par.choiceN(Par.unit(4), List.of(
 				Par.lazyUnit(() -> {sleepySleep(100L); return 1;}),
@@ -68,7 +62,7 @@ public class Ch7 {
 		long start = System.currentTimeMillis();
 		T res = body.get();
 		long timeMillis = System.currentTimeMillis() - start;
-		System.out.println("That took "+timeMillis+" milliseconds");
+		System.out.println("That took "+timeMillis+" ms");
 		return res;
 	}
 	

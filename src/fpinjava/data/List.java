@@ -114,6 +114,10 @@ public abstract class List<A> {
 		return rangeHelper2(from,to,nil());
 	}
 	
+	public static <B> List<B> fill(int n, B b) {
+		return range(0,n).tail().map(i -> b);
+	}
+	
 	public static List<Integer> rangeHelper(int from, int to, List<Integer> acc) {
 		if(from > to) return acc;
 		else {

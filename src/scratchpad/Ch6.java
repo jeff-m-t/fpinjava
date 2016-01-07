@@ -3,8 +3,8 @@ package scratchpad;
 import java.util.function.Function;
 
 import fpinjava.data.List;
+import fpinjava.data.Pair;
 import fpinjava.data.State;
-import fpinjava.data.State.StateAction;
 import fpinjava.data.Unit;
 
 
@@ -13,7 +13,7 @@ public class Ch6 {
 
 	public static void main(String[] args) {
 
-		Function<Integer,StateAction<Integer,Integer>> f =  (i) -> new StateAction<Integer,Integer>(i + 1, i);
+		Function<Integer,Pair<Integer,Integer>> f =  (i) -> new Pair<Integer,Integer>(i + 1, i);
 
 		State<Integer,Integer> state = new State<Integer,Integer>(f);
 		
@@ -21,7 +21,7 @@ public class Ch6 {
 
 		State<Machine,Machine> test = simulateMachine(List.of(Input.coin(),Input.turn(),Input.coin(),Input.turn()));
 		
-		System.out.println( test.run(new Machine(true,10,0)).output() );
+		System.out.println( test.run(new Machine(true,10,0)).snd );
 		
 	}
 	
