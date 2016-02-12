@@ -1,8 +1,11 @@
 package fpinjava.util.parsing;
 
+import fpinjava.data.List;
+import fpinjava.data.Pair;
+
 public class Location {
-	private final String input;
-	private final int offset;
+	public final String input;
+	public final int offset;
 	
 	public Location(String input, int offset) {
 		this.input = input;
@@ -13,15 +16,40 @@ public class Location {
 		this(input,0);
 	}
 	
+	public Location advanceBy(int n) {
+		return new Location(input,offset+n);
+	}
+	
+	public ParseError toError(String msg) {
+		return new ParseError(List.of(Pair.of(this, msg)));
+	}
+	
 	public int line() {
-		String prefix = input.substring(0,offset+1);
+		String prefix = (offset+1 < input.length()) ? input.substring(0,offset+1) : input;
 		
 		// Count number of new line chars before the offset
 		return prefix.length() - prefix.replace("\n", "").length() + 1;
 	}
 	
 	public int col() {
-		int lastNewLine = input.substring(0,offset+1).lastIndexOf("\n");
+		String prefix = (offset+1 < input.length()) ? input.substring(0,offset+1) : input;
+		int lastNewLine = prefix.lastIndexOf("\n");
 		return lastNewLine == -1 ? (offset + 1) : (offset - lastNewLine);
+	}
+	
+	public String errLine() {
+		String prefix = (offset+1 < input.length()) ? input.substring(0,offset+1) : input;
+		int lastNewLine = prefix.lastIndexOf("\n");
+		int nextNewLine = input.indexOf("\n", offset);
+		
+		if(lastNewLine == -1 && nextNewLine == -1) return input;
+		else if(lastNewLine == -1 && nextNewLine != -1) return input.substring(0,nextNewLine-1);
+		else if(lastNewLine != -1 && nextNewLine == -1) return  input.substring(lastNewLine+1,input.length());
+		else return input.substring(lastNewLine+1,nextNewLine-1);
+	}
+	
+	@Override 
+	public String toString() {
+		return "(line: "+line()+", col: "+col()+") - '"+errLine()+"'";
 	}
 }

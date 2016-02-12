@@ -30,6 +30,17 @@ public abstract class List<A> {
 		return foldRight(other, (a,b) -> new Cons<A>(a,b));
 	}
 	
+	public Optional<A> headOption() {
+		if(isEmpty()) return Optional.empty();
+		else return Optional.of(head());
+	}
+	
+	public Optional<A> lastOption() {
+		if(isEmpty()) return Optional.empty();
+		else if(tail().isEmpty()) return Optional.of(head());
+		else return tail().lastOption();
+	}
+	
 	public List<A> take(int num) {
 		if(num ==0 || isEmpty()) return nil();
 		else return new Cons<A>(head(), tail().take(num - 1));

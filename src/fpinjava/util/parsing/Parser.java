@@ -9,190 +9,189 @@ import java.util.regex.Pattern;
 import fpinjava.data.List;
 import fpinjava.data.Pair;
 
-public interface Parser<A> {
+// TODO: Reduce duplication between Parser and ParserFactory
+public class Parser<IN,A> {
+		
+	public final ParserImpl<IN,A> impl;
 	
-	public Result<A> run(Parser<A> pa, Location input);
+	public Parser(ParserImpl<IN,A> impl) {
+		this.impl = impl;
+	}
 	
-	public <B> Parser<B> succeed(B a);
+	public Result<A> parse(String inp) {
+		return impl.run(impl.inputFor(inp));
+	}
 	
-	public Parser<String> string(String s);
+	public static <IN,OUT> Parser<IN,OUT> of(ParserImpl<IN,OUT> impl) {
+		return new Parser<IN,OUT>(impl);
+	}
 	
-	public Parser<String> regex(Pattern pat);
-	
-	public <B> Parser<B> or(Parser<B> p1, Supplier<Parser<B>> p2);
-	
-	public <B,C> Parser<C> flatMap(Parser<B> pa, Function<B,Parser<C>> f);
-	
-	public <B> Parser<String> slice(Parser<B> pa);
-	
-	public <B> Parser<B> label(String msg, Parser<B> pa);
-	
-	public <B> Parser<B> scope(String name, Parser<B> pa);
-	
-	public <B> Parser<B> attempt(Parser<B> pa);
-
 	/* Derived functions */
-	public default <B> Parser<B> defaultSucceed(B b) {
-		return string("").map(s -> b);
+	public <B> Parser<IN,B> defaultSucceed(B b) {
+		return Parser.of(impl.string("")).map(s -> b);
 	}
 
-	public default Parser<Character> character(char c) {
-		return string(String.valueOf(c)).map(s -> s.charAt(0));
+	public Parser<IN,Character> character(char c) {
+		return Parser.of(impl.string(String.valueOf(c))).map(s -> s.charAt(0));
 	}
 	
-	public default <B,C> Parser<C> map(Parser<B> pa, Function<B,C> f) {
-		return flatMap(pa,a -> succeed(f.apply(a)));
+	public <B,C> Parser<IN,C> map(Parser<IN,B> pb, Function<B,C> f) {
+		return pb.flatMap(b -> Parser.of(impl.succeed(f.apply(b))));
 	}
 	
-	public default <B> Parser<List<B>> many(Parser<B> pa) {
-		return map2(pa, ()->many(pa),(a,as) -> as.cons(a)).or(succeed(List.nil()));
+	public <B> Parser<IN,List<B>> many(Parser<IN,B> pb) {
+		return map2(pb, () -> pb.many(),(b,bs) -> bs.cons(b)).or(()->Parser.of(impl.succeed(List.nil())));
 	}
 	
-	public default <B> Parser<List<B>> many1(Parser<B> pa) {
-		return map2(pa,() -> many(pa), (a,as) -> as.cons(a));
+	public <B> Parser<IN,List<B>> many1(Parser<IN,B> pa) {
+		return map2(pa,() -> pa.many(), (a,as) -> as.cons(a));
 	}
 	
-	public default <B,C,D> Parser<D> map2(Parser<B> pa, Supplier<Parser<C>> pb, BiFunction<B,C,D> f) {
+	public <B,C,D> Parser<IN,D> map2(Parser<IN,B> pa, Supplier<Parser<IN,C>> pb, BiFunction<B,C,D> f) {
 		return pa.flatMap(a -> pb.get().map(b -> f.apply(a,b)));
 	}
 
-	public default <B,C> Parser<Pair<B,C>> product(Parser<B> pa, Supplier<Parser<C>> pb) {
+	public <B,C> Parser<IN,Pair<B,C>> product(Parser<IN,B> pa, Supplier<Parser<IN,C>> pb) {
 		return map2(pa,pb,(a,b) -> Pair.of(a,b));
 	}
 
-	public default <B> Parser<List<B>> listOfN(int n, Parser<B> pa) {
-		if(n == 0) return succeed(List.nil());
+	public <B> Parser<IN,List<B>> listOfN(int n, Parser<IN,B> pa) {
+		if(n == 0) return Parser.of(impl.succeed(List.nil()));
 		else return map2(pa,() -> listOfN(n-1, pa),(a,as) -> as.cons(a));
 	}
 	
-	public default <B> Parser<B> skipL(Parser<?> p1, Supplier<Parser<B>> p2) {
-		return map2(slice(p1), p2, (a,b) -> b);
+	public <B> Parser<IN,B> skipL(Parser<IN,?> p1, Supplier<Parser<IN,B>> p2) {
+		return map2(Parser.of(impl.slice(p1.impl)), p2, (a,b) -> b);
 	}
 	
-	public default <B> Parser<B> skipR(Parser<B> p1, Supplier<Parser<?>> p2) {
-		return map2(p1,() -> slice(p2.get()),(a,b) -> a);
+	public <B> Parser<IN,B> skipR(Parser<IN,B> p1, Supplier<Parser<IN,?>> p2) {
+		return map2(p1,() -> Parser.of(impl.slice(p2.get().impl)),(a,b) -> a);
 	}
 	
-	public default <B> Parser<Optional<B>> opt(Parser<B> pa) {
-		return pa.map(a -> Optional.of(a)).or(succeed(Optional.empty()));
+	public <B> Parser<IN,Optional<B>> opt(Parser<IN,B> pa) {
+		return pa.map(a -> Optional.of(a)).or(()->Parser.of(impl.succeed(Optional.empty())));
 	}
 	
-	public default Parser<String> whitespace() {
-		return regex(Pattern.compile("\\s+"));
+	public Parser<IN,String> whitespace() {
+		return Parser.of(impl.regex(Pattern.compile("\\s+")));
 	}
 	
-	public default <B> Parser<B> token(Parser<B> pa) {
-		return skipR(attempt(pa),() -> whitespace());
+	public <B> Parser<IN,B> token(Parser<IN,B> pa) {
+		return skipR(Parser.of(impl.attempt(pa.impl)),() -> whitespace());
 	}
 	
-	public default Parser<String> digits() {
-		return regex(Pattern.compile("\\d+"));
+	public Parser<IN,String> digits() {
+		return Parser.of(impl.regex(Pattern.compile("\\d+")));
 	}
 	
-	public default Parser<String> thru(String s) {
-		return regex(Pattern.compile(".*?"+Pattern.quote(s)));
+	public Parser<IN,String> thru(String s) {
+		return Parser.of(impl.regex(Pattern.compile(".*?"+Pattern.quote(s))));
 	}
 	
-	public default Parser<String> quoted() {
-		return skipL(string("\""),() -> thru("\"")).map(s -> s.substring(0,s.length()-1));
+	public Parser<IN,String> quoted() {
+		return skipL(Parser.of(impl.string("\"")),() -> thru("\"")).map(s -> s.substring(0,s.length()-1));
 	}
 	
 	// Really just unescaped 
-	public default Parser<String> escapedQuoted() {
+	public Parser<IN,String> escapedQuoted() {
 		return token(quoted().label("String Literal"));
 	}
 	
-	public default Parser<String> doubleString() {
-		return regex(Pattern.compile("[-+]?([0-9]*\\.)?[0-9]+([eE][-+]?[0-9]+)?"));
+	public Parser<IN,String> doubleString() {
+		return Parser.of(impl.regex(Pattern.compile("[-+]?([0-9]*\\.)?[0-9]+([eE][-+]?[0-9]+)?")));
 	}
 	
-	public default Parser<Double> fpnumber() {
+	public Parser<IN,Double> fpnumber() {
 		return doubleString().map(ds -> Double.valueOf(ds));
 	}
 	
 	 /** Zero or more repetitions of `p`, separated by `p2`, whose results are ignored. */
-	public default <B> Parser<List<B>> sep(Parser<B> pa, Parser<?> sep) {
-		return sep1(pa,sep).or(succeed(List.nil()));
+	public <B> Parser<IN,List<B>> sep(Parser<IN,B> pa, Parser<IN,?> sep) {
+		return sep1(pa,sep).or(()->Parser.of(impl.succeed(List.nil())));
 	}
 	
 	/** One or more repetitions of `p`, separated by `p2`, whose results are ignored. */
-	public default <B> Parser<List<B>> sep1(Parser<B> pa, Parser<?> sep) {
+	public <B> Parser<IN,List<B>> sep1(Parser<IN,B> pa, Parser<IN,?> sep) {
 		return map2(pa, ()->many(skipL(sep,()->pa)), (a,as) -> as.cons(a));
 	}
 	
 	// baffled
 	/** Parses a sequence of left-associative binary operators with the same precedence. */
-	public default <B> Parser<B> opL(Parser<B> p, Parser<BiFunction<B,B,B>> op) {
+	public <B> Parser<IN,B> opL(Parser<IN,B> p, Parser<IN,BiFunction<B,B,B>> op) {
 		return map2(p,()->many(product(op,() -> p)), (h,t) -> t.foldLeft(h,(a,b) -> b.fst.apply(a,b.snd)));
 	}
 	
 	/** Wraps `p` in before/after delimiters. */
-	public default <B> Parser<B> surround(Parser<?> before, Parser<?> after, Parser<B> pa) {
+	public <B> Parser<IN,B> surround(Parser<IN,?> before, Parser<IN,?> after, Parser<IN,B> pa) {
 		return skipL(before, ()->skipR(pa,()->after));
 	}
 	
-	public default Parser<String> eof() {
-		return regex(Pattern.compile("\\z")).label("unexpected trailing characters");
+	public Parser<IN,String> eof() {
+		return Parser.of(impl.regex(Pattern.compile("\\z"))).label("unexpected trailing characters");
 	}
 	
-	public default Parser<A> root(Parser<A> pa) {
+	public Parser<IN,A> root(Parser<IN,A> pa) {
 		return skipR(pa,()->eof());
 	}	
 	
 	/* Instance methods */
-	public default Parser<A> or(Parser<A> other) {
-		return or(this,()-> other);
+	public Parser<IN,A> or(Supplier<Parser<IN,A>> other) {
+		return Parser.of(impl.or(this.impl,()->other.get().impl));
 	}
 	
-	public default Parser<List<A>> many() {
+	public Parser<IN,List<A>> many() {
 		return many(this);
 	}
 	
-	public default <B> Parser<B> map(Function<A,B> f) {
+	public <B> Parser<IN,B> map(Function<A,B> f) {
 		return map(this,f);
 	}
 	
-	public default <B> Parser<B> flatMap(Function<A,Parser<B>> f) {
-		return flatMap(this,f);
+	public <B> Parser<IN,B> flatMap(Function<A,Parser<IN,B>> f) {
+		return Parser.of(impl.flatMap(this.impl,f.andThen(p -> p.impl)));
 	}
 	
-	public default Parser<String> slice() {
-		return slice(this);
+	public Parser<IN,String> slice() {
+		return Parser.of(impl.slice(this.impl));
 	}
 	
-	public default Parser<A> label(String msg) {
-		return label(msg,this);
+	public Parser<IN,A> label(String msg) {
+		return Parser.of(impl.label(msg,this.impl));
 	}
 	
-	public default Parser<A> scope(String msg) {
-		return scope(msg,this);
+	public Parser<IN,A> scope(String msg) {
+		return Parser.of(impl.scope(msg,this.impl));
 	}
 
-	public default Parser<A> token() {
+	public Parser<IN,A> token() {
 		return token(this);
 	}
 	
-	public default Parser<List<A>> sep(Parser<?> s) {
+	public Parser<IN,List<A>> sep(Parser<IN,?> s) {
 		return sep(this,s);
 	}
 	
-	public default Parser<List<A>> sep1(Parser<?> s) {
+	public Parser<IN,A> surroundedBy(Parser<IN,?> before, Parser<IN,?> after) {
+		return surround(before,after,this);
+	}
+	
+	public Parser<IN,List<A>> sep1(Parser<IN,?> s) {
 		return sep1(this,s);
 	}
 	
-	public default Parser<A> opL(Parser<BiFunction<A,A,A>> op) {
+	public Parser<IN,A> opL(Parser<IN,BiFunction<A,A,A>> op) {
 		return opL(this,op);
 	}
 	
-	public default <B> Parser<Pair<A,B>> andThen(Parser<B> pb) {
-		return product(this,()->pb);
+	public <B> Parser<IN,Pair<A,B>> andThen(Supplier<Parser<IN,B>> pb) {
+		return product(this,pb);
 	}
 	
-	public default <B> Parser<B> skippedAndThen(Parser<B> pb) {
-		return skipL(this,()->pb);
+	public <B> Parser<IN,B> skippedAndThen(Supplier<Parser<IN,B>> pb) {
+		return skipL(this,pb);
 	}
 	
-	public default Parser<A> andThenSkip(Parser<?> pb) {
-		return skipR(this,()->pb);
+	public Parser<IN,A> andThenSkip(Supplier<Parser<IN,?>> pb) {
+		return skipR(this,pb);
 	}
 }
