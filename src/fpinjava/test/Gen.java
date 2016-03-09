@@ -40,6 +40,10 @@ public class Gen<A> {
 	public <B> Gen<B> flatMap(Function<A,Gen<B>> f) {
 		return new Gen<B>(sample.flatMap(a -> f.apply(a).sample));
 	}
+
+	public <B> Gen<B> map(Function<A,B> f) {
+		return this.flatMap(a -> unit(f.apply(a)));
+	}
 	
 	public Gen<List<A>> listOfN(Gen<Integer> size) {
 		return size.flatMap(n -> Gen.listOfN(n, this));
